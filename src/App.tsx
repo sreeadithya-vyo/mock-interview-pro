@@ -10,6 +10,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import NewMock from "./pages/NewMock";
 import InterviewRoom from "./pages/InterviewRoom";
+import LiveInterview from "./pages/LiveInterview";
 import TranscriptProcessing from "./pages/TranscriptProcessing";
 import InterviewPlayer from "./pages/InterviewPlayer";
 import Evaluation from "./pages/Evaluation";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/new-mock" element={<NewMock />} />
           <Route path="/interview/:id/room" element={<InterviewRoom />} />
+          <Route path="/interview/:id/live" element={<LiveInterview />} />
           <Route path="/interview/:id/device-test" element={<InterviewRoom />} />
           <Route path="/interview/:id/processing" element={<TranscriptProcessing />} />
           <Route path="/interview/:id/player" element={<InterviewPlayer />} />
