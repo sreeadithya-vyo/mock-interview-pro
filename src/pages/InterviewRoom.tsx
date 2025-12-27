@@ -1,20 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
-  Video,
+  MessageCircle,
+  RotateCcw,
+  PhoneOff,
   Mic,
   MicOff,
+  Video,
   VideoOff,
-  Play,
-  Pause,
-  SkipForward,
-  Flag,
-  Square,
-  Clock,
-  MessageSquare,
-  ChevronRight,
-  AlertCircle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -28,356 +24,242 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const mockQuestions = [
-  "Tell me about a time when you had to work under pressure to meet a tight deadline. How did you handle it?",
-  "Describe a situation where you had to collaborate with a difficult team member. What approach did you take?",
-  "Can you walk me through a complex technical problem you solved recently?",
-  "How do you prioritize tasks when you have multiple competing deadlines?",
-  "Tell me about a time you received critical feedback. How did you respond?",
+  { text: "What job ", highlight: "experience level", suffix: " are you targeting?" },
+  { text: "Tell me about a time when you ", highlight: "led a team", suffix: " through a difficult project." },
+  { text: "How do you approach ", highlight: "problem solving", suffix: " in complex situations?" },
+  { text: "What makes you ", highlight: "passionate", suffix: " about this role?" },
+  { text: "Describe your ", highlight: "biggest achievement", suffix: " in your career so far." },
 ];
 
 export default function InterviewRoom() {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [sessionTime, setSessionTime] = useState(0);
-  const [questionTime, setQuestionTime] = useState(0);
+  const [isAISpeaking, setIsAISpeaking] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [transcript, setTranscript] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-  const [endDialogOpen, setEndDialogOpen] = useState(false);
-  const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>([]);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { id } = useParams();
 
-  // Timer effect
+  // Simulate AI speaking animation
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRecording && !isPaused) {
-      interval = setInterval(() => {
-        setSessionTime((prev) => prev + 1);
-        setQuestionTime((prev) => prev + 1);
-      }, 1000);
-    }
+    const interval = setInterval(() => {
+      setIsAISpeaking((prev) => !prev);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [isRecording, isPaused]);
+  }, []);
 
-  // Simulated transcript updates
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      const transcriptInterval = setInterval(() => {
-        const responses = [
-          "So, in that situation, I approached it by...",
-          "The main challenge was to balance the priorities...",
-          "I communicated with the team to ensure alignment...",
-          "We ended up delivering ahead of schedule...",
-        ];
-        setTranscript((prev) => [
-          ...prev,
-          responses[Math.floor(Math.random() * responses.length)],
-        ]);
-      }, 5000);
-      return () => clearInterval(transcriptInterval);
-    }
-  }, [isRecording, isPaused]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setIsRecording(true);
-      toast({
-        title: "Recording started",
-        description: "Your interview is now being recorded.",
-      });
-    } catch (error) {
-      toast({
-        title: "Permission denied",
-        description: "Please allow camera and microphone access.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const togglePause = () => {
-    setIsPaused(!isPaused);
+  const repeatQuestion = () => {
     toast({
-      title: isPaused ? "Recording resumed" : "Recording paused",
+      title: "Repeating question",
+      description: "The AI interviewer will repeat the current question.",
     });
   };
 
-  const nextQuestion = () => {
-    if (currentQuestion < mockQuestions.length - 1) {
-      setCurrentQuestion((prev) => prev + 1);
-      setQuestionTime(0);
-      setTranscript([]);
-    } else {
-      setEndDialogOpen(true);
-    }
+  const leaveInterview = () => {
+    setLeaveDialogOpen(false);
+    navigate(`/interview/${id || "new"}/processing`);
   };
 
-  const skipQuestion = () => {
-    toast({
-      title: "Question skipped",
-      description: "Moving to the next question.",
-    });
-    nextQuestion();
-  };
-
-  const toggleFlag = () => {
-    setFlaggedQuestions((prev) =>
-      prev.includes(currentQuestion)
-        ? prev.filter((q) => q !== currentQuestion)
-        : [...prev, currentQuestion]
-    );
-  };
-
-  const endInterview = () => {
-    setEndDialogOpen(false);
-    navigate("/interview/new/processing");
-  };
-
-  const progress = ((currentQuestion + 1) / mockQuestions.length) * 100;
+  const currentQ = mockQuestions[currentQuestion];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-6 py-3 flex items-center justify-between bg-card">
+      <header className="px-6 py-4 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "w-3 h-3 rounded-full",
-                isRecording && !isPaused ? "bg-destructive animate-pulse" : "bg-muted-foreground"
-              )}
-            />
-            <span className="text-sm font-medium text-foreground">
-              {isRecording ? (isPaused ? "Paused" : "Recording") : "Ready"}
-            </span>
+          {/* Logo/Title */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-lg">M</span>
+            </div>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">
+              Frontend Developer Interview
+            </h1>
           </div>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-4 h-4" />
-            <span className="font-mono">{formatTime(sessionTime)}</span>
+          
+          {/* Tech Icons */}
+          <div className="hidden md:flex items-center gap-2 ml-2">
+            <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+              <Settings className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary" fill="currentColor">
+                <path d="M12 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>
+                <path d="M12 21.35c-1.37 0-2.63-.15-3.73-.43-.93-.24-1.73-.55-2.38-.93-.68-.4-1.18-.86-1.5-1.37-.32-.52-.47-1.08-.47-1.62 0-.54.15-1.1.47-1.62.32-.51.82-.97 1.5-1.37.65-.38 1.45-.69 2.38-.93 1.1-.28 2.36-.43 3.73-.43 1.37 0 2.63.15 3.73.43.93.24 1.73.55 2.38.93.68.4 1.18.86 1.5 1.37.32.52.47 1.08.47 1.62 0 .54-.15 1.1-.47 1.62-.32.51-.82.97-1.5 1.37-.65.38-1.45.69-2.38.93-1.1.28-2.36.43-3.73.43Z"/>
+              </svg>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">
-            Question {currentQuestion + 1} of {mockQuestions.length}
-          </span>
-          <Progress value={progress} className="w-32 h-2" />
-        </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setEndDialogOpen(true)}
-        >
-          <Square className="w-4 h-4 mr-2" />
-          End Interview
-        </Button>
+
+        <Badge variant="outline" className="text-sm px-4 py-1.5 border-primary/30 text-foreground bg-secondary">
+          Technical Interview
+        </Badge>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Question */}
-        <div className="w-1/3 border-r border-border p-6 overflow-y-auto bg-card">
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-primary uppercase tracking-wider">
-                  Current Question
-                </span>
-                <Button
-                  variant={flaggedQuestions.includes(currentQuestion) ? "warning" : "ghost"}
-                  size="sm"
-                  onClick={toggleFlag}
-                >
-                  <Flag className="w-4 h-4 mr-1" />
-                  {flaggedQuestions.includes(currentQuestion) ? "Flagged" : "Flag"}
-                </Button>
+      {/* Main Content - Interview Cards */}
+      <main className="flex-1 px-6 py-6 flex flex-col gap-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* AI Interviewer Card */}
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl opacity-60 blur-sm group-hover:opacity-80 transition-opacity" />
+            <div className="relative h-full rounded-2xl bg-card border border-border overflow-hidden flex flex-col items-center justify-center p-8 min-h-[320px] lg:min-h-[380px]">
+              {/* AI Avatar with Speaking Animation */}
+              <div className="relative mb-6">
+                {/* Outer Ring Animation */}
+                <div className={cn(
+                  "absolute inset-0 rounded-full border-2 border-primary/30 scale-[1.5] transition-all duration-700",
+                  isAISpeaking && "animate-ping opacity-40"
+                )} />
+                <div className={cn(
+                  "absolute inset-0 rounded-full border-2 border-primary/40 scale-[1.25] transition-all duration-500",
+                  isAISpeaking && "animate-pulse"
+                )} />
+                
+                {/* Avatar Container */}
+                <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border-4 border-primary/30">
+                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-card flex items-center justify-center shadow-xl border border-border">
+                    <MessageCircle className={cn(
+                      "w-12 h-12 md:w-14 md:h-14 text-primary transition-transform duration-300",
+                      isAISpeaking && "scale-110"
+                    )} />
+                  </div>
+                </div>
               </div>
-              <p className="text-lg font-medium text-foreground leading-relaxed">
-                {mockQuestions[currentQuestion]}
+              
+              <h2 className="text-2xl md:text-3xl font-semibold text-foreground">AI Interviewer</h2>
+              
+              {/* Speaking Indicator */}
+              <div className={cn(
+                "mt-4 flex items-center gap-2 transition-opacity duration-300",
+                isAISpeaking ? "opacity-100" : "opacity-0"
+              )}>
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* User Card */}
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-accent/30 to-primary/30 rounded-2xl opacity-40 blur-sm group-hover:opacity-60 transition-opacity" />
+            <div className="relative h-full rounded-2xl bg-card border border-border overflow-hidden flex flex-col items-center justify-center p-8 min-h-[320px] lg:min-h-[380px]">
+              {/* User Avatar */}
+              <div className="relative mb-6">
+                <Avatar className="w-32 h-32 md:w-40 md:h-40 border-4 border-accent/30">
+                  <AvatarImage src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face" alt="User" />
+                  <AvatarFallback className="text-4xl bg-accent text-accent-foreground">AD</AvatarFallback>
+                </Avatar>
+                
+                {/* Camera/Mic Status Indicator */}
+                <div className="absolute -bottom-2 -right-2 flex gap-1">
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-colors border-2 border-card",
+                    isMuted ? "bg-destructive" : "bg-success"
+                  )}>
+                    {isMuted ? <MicOff className="w-4 h-4 text-destructive-foreground" /> : <Mic className="w-4 h-4 text-success-foreground" />}
+                  </div>
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center transition-colors border-2 border-card",
+                    isCameraOff ? "bg-destructive" : "bg-success"
+                  )}>
+                    {isCameraOff ? <VideoOff className="w-4 h-4 text-destructive-foreground" /> : <Video className="w-4 h-4 text-success-foreground" />}
+                  </div>
+                </div>
+              </div>
+              
+              <h2 className="text-2xl md:text-3xl font-semibold text-foreground">Adrian (You)</h2>
+              
+              {/* Listening Indicator */}
+              <p className="mt-3 text-sm text-muted-foreground">
+                {!isAISpeaking ? "Your turn to respond..." : "Listening..."}
               </p>
             </div>
-
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4" />
-              <span>Time on question: {formatTime(questionTime)}</span>
-            </div>
-
-            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-              <p className="text-sm text-primary font-medium mb-2">💡 Tips</p>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Use the STAR method (Situation, Task, Action, Result)</li>
-                <li>• Be specific with examples</li>
-                <li>• Keep your answer concise (2-3 minutes)</li>
-              </ul>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={skipQuestion}>
-                <SkipForward className="w-4 h-4 mr-2" />
-                Skip
-              </Button>
-              <Button variant="default" className="flex-1" onClick={nextQuestion}>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
           </div>
         </div>
 
-        {/* Center Panel - Video */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 p-6 flex items-center justify-center bg-muted/30">
-            <div className="relative w-full max-w-2xl aspect-video rounded-2xl overflow-hidden bg-foreground/5 border border-border shadow-elevated">
-              {!isRecording ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Video className="w-10 h-10 text-primary" />
-                  </div>
-                  <p className="text-muted-foreground">Click "Start Recording" to begin</p>
-                  <Button variant="hero" size="lg" onClick={startRecording}>
-                    <Play className="w-5 h-5 mr-2" />
-                    Start Recording
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className={cn(
-                      "w-full h-full object-cover",
-                      isCameraOff && "opacity-0"
-                    )}
-                  />
-                  {isCameraOff && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-foreground/10">
-                      <VideoOff className="w-16 h-16 text-muted-foreground" />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="border-t border-border p-4 bg-card">
-            <div className="flex items-center justify-center gap-3">
-              <Button
-                variant={isMuted ? "destructive" : "outline"}
-                size="icon"
-                onClick={() => setIsMuted(!isMuted)}
-                disabled={!isRecording}
-              >
-                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </Button>
-              <Button
-                variant={isCameraOff ? "destructive" : "outline"}
-                size="icon"
-                onClick={() => setIsCameraOff(!isCameraOff)}
-                disabled={!isRecording}
-              >
-                {isCameraOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-              </Button>
-              <Button
-                variant={isPaused ? "default" : "outline"}
-                size="lg"
-                onClick={togglePause}
-                disabled={!isRecording}
-              >
-                {isPaused ? (
-                  <>
-                    <Play className="w-5 h-5 mr-2" />
-                    Resume
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-5 h-5 mr-2" />
-                    Pause
-                  </>
-                )}
-              </Button>
-            </div>
+        {/* Question Bar */}
+        <div className="w-full">
+          <div className="glass rounded-2xl px-8 py-6 text-center shadow-elevated">
+            <p className="text-lg md:text-xl lg:text-2xl text-foreground leading-relaxed">
+              {currentQ.text}
+              <span className="inline-block px-4 py-1.5 mx-1 rounded-lg bg-card border border-border font-medium text-foreground shadow-sm">
+                {currentQ.highlight}
+              </span>
+              {currentQ.suffix}
+            </p>
           </div>
         </div>
 
-        {/* Right Panel - Transcript & Notes */}
-        <div className="w-1/3 border-l border-border flex flex-col bg-card">
-          <div className="flex-1 p-4 overflow-y-auto">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Live Transcript</span>
-            </div>
-            <div className="space-y-3">
-              {transcript.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">
-                  Transcript will appear here as you speak...
-                </p>
-              ) : (
-                transcript.map((text, index) => (
-                  <p key={index} className="text-sm text-foreground">
-                    {text}
-                  </p>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="border-t border-border p-4">
-            <Label className="text-sm font-medium text-foreground mb-2 block">Notes</Label>
-            <Textarea
-              placeholder="Take notes during the interview..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[100px] resize-none"
-            />
-          </div>
+        {/* Action Buttons */}
+        <div className="flex items-center justify-center gap-4 pb-4">
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={repeatQuestion}
+            className="px-10 py-6 text-base gap-3 rounded-xl"
+          >
+            <RotateCcw className="w-5 h-5" />
+            Repeat
+          </Button>
+          
+          <Button
+            variant="destructive"
+            size="lg"
+            onClick={() => setLeaveDialogOpen(true)}
+            className="px-10 py-6 text-base gap-3 rounded-xl"
+          >
+            <PhoneOff className="w-5 h-5" />
+            Leave interview
+          </Button>
         </div>
       </main>
 
-      {/* End Interview Dialog */}
-      <AlertDialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
+      {/* Quick Controls - Floating */}
+      <div className="fixed bottom-6 left-6 flex gap-2">
+        <Button
+          variant={isMuted ? "destructive" : "outline"}
+          size="icon"
+          onClick={() => setIsMuted(!isMuted)}
+          className="w-12 h-12 rounded-full shadow-lg"
+        >
+          {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </Button>
+        <Button
+          variant={isCameraOff ? "destructive" : "outline"}
+          size="icon"
+          onClick={() => setIsCameraOff(!isCameraOff)}
+          className="w-12 h-12 rounded-full shadow-lg"
+        >
+          {isCameraOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+        </Button>
+      </div>
+
+      {/* Leave Interview Dialog */}
+      <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-warning" />
-              End Interview?
+              <PhoneOff className="w-5 h-5 text-destructive" />
+              Leave Interview?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to end this mock interview? Your recording and responses
-              will be processed for evaluation.
+              Are you sure you want to leave this interview? Your progress will be saved
+              and you'll be taken to the evaluation screen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Continue Interview</AlertDialogCancel>
-            <AlertDialogAction onClick={endInterview}>End & Review</AlertDialogAction>
+            <AlertDialogAction onClick={leaveInterview} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Leave Interview
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
 }
